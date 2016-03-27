@@ -4,7 +4,7 @@
 *
 * @author    Craig Manley
 * @copyright Copyright © 2016, Craig Manley (craigmanley.com). All rights reserved.
-* @version   $Id$
+* @version   $Id: Client.php,v 1.1 2016/03/27 00:34:36 cmanley Exp $
 * @package   IMAP
 */
 namespace IMAP;
@@ -31,7 +31,6 @@ class Client {
 
 	protected $imap_stream;
 	protected $proxy_method_cache = array(); // map of trusted method name => ReflectionFunction object pairs; built on-the-fly
-
 	# options:
 	protected $debug;
 
