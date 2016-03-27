@@ -31,6 +31,7 @@ class Client {
 
 	protected $imap_stream;
 	protected $proxy_method_cache = array(); // map of trusted method name => ReflectionFunction object pairs; built on-the-fly
+
 	# options:
 	protected $debug;
 
