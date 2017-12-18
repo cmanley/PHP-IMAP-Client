@@ -4,7 +4,7 @@
 *
 * @author    Craig Manley
 * @copyright Copyright © 2016, Craig Manley (craigmanley.com). All rights reserved.
-* @version   $Id: Client.php,v 1.1 2016/03/27 00:34:36 cmanley Exp $
+* @version   $Id: Client.php,v 1.3 2017/12/18 19:58:31 cmanley Exp $
 * @package   IMAP
 */
 namespace IMAP;
@@ -30,7 +30,7 @@ class Exception extends \Exception {}
 class Client {
 
 	protected $imap_stream;
-	protected $proxy_method_cache = array(); // map of trusted method name => ReflectionFunction object pairs; built on-the-fly
+	protected $proxy_method_cache = array(); # map of trusted method name => ReflectionFunction object pairs; built on-the-fly
 	# options:
 	protected $debug;
 
@@ -106,20 +106,24 @@ class Client {
 					$this->debug && error_log(__METHOD__ . " $func as no parameters");
 					break;
 				}
+				# Check the first parameter in detail.
 				$p = reset($params);
-				if (!(
-					((PHP_MAJOR_VERSION < 7) || $p->hasType())
-					&&
-					((PHP_MAJOR_VERSION < 7) || ($p->getType() == 'resource'))	// untested
-					&&
-					!$p->allowsNull()
-					&&
-					!$p->isOptional()
-					&&
-					($p->getName() == 'stream_id') # name can't be trusted across PHP versions
-				)) {
-					$this->debug && error_log(__METHOD__ . " $func doesn't have the expected first parameter");
-					$rf = null;
+				if (PHP_MAJOR_VERSION >= 7) {
+					if ($p->hasType() && ($p->getType() != 'resource')) {
+						$this->debug && error_log(__METHOD__ . " $func first parameter has an unexpected type (" . $p->getType() . ')');
+						break;
+					}
+				}
+				if ($p->allowsNull()) {
+					$this->debug && error_log(__METHOD__ . " $func first parameter should no allow null");
+					break;
+				}
+				if ($p->isOptional()) {
+					$this->debug && error_log(__METHOD__ . " $func first parameter should not be optional");
+					break;
+				}
+				if ($p->getName() != 'stream_id') { # name can't be trusted across PHP versions
+					$this->debug && error_log(__METHOD__ . " $func first parameter has unexpected name (" . $p->getName() . ')');
 					break;
 				}
 				$this->debug && error_log(__METHOD__ . " $func added to proxy method cache");
