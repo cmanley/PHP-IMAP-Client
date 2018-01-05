@@ -4,7 +4,7 @@
 *
 * @author    Craig Manley
 * @copyright Copyright © 2016, Craig Manley (craigmanley.com). All rights reserved.
-* @version   $Id: Client.php,v 1.3 2017/12/18 19:58:31 cmanley Exp $
+* @version   $Id: Client.php,v 1.4 2018/01/05 03:27:01 cmanley Exp $
 * @package   IMAP
 */
 namespace IMAP;
@@ -31,8 +31,13 @@ class Client {
 
 	protected $imap_stream;
 	protected $proxy_method_cache = array(); # map of trusted method name => ReflectionFunction object pairs; built on-the-fly
+	protected $driver;
+	protected $pop3_uidl_to_msgnum_cache;
+	protected $pop3_msgnum_to_uidl_cache;
+
 	# options:
 	protected $debug;
+
 
 	/**
 	* Constructor.
@@ -57,6 +62,9 @@ class Client {
 		if (!$this->imap_stream) {
 			throw new Exception("imap_open('$mailbox', '$user', '...') failed");
 		}
+		if ($info = $this->mailboxmsginfo()) {
+			$this->driver = $info->Driver;
+		}
 		\imap_errors(); # clear errors from appearing at cleanup
 	}
 
@@ -71,8 +79,7 @@ class Client {
 
 
 	/**
-	* PHP magic method that proxies unknown methods to the matching imap_*() function counterpart as long
-	* as that counterpart takes a resource $stream_id as first argument, with the exception of imap_close().
+	* PHP magic method that proxies unknown methods to the matching imap_*() function counterpart.
 	*
 	* @param string $name
 	* @param array $arguments
@@ -87,6 +94,13 @@ class Client {
 			if ($name == 'close') {
 				$this->debug && error_log(__METHOD__ . " $name may not be called as method");
 				break;
+			}
+			if ($this->driver == 'pop3') {
+				# Clear UIDL cache
+				if (($name == 'expunge') || ($name == 'reopen')) {
+					$this->pop3_uidl_to_msgnum_cache = null;
+					$this->pop3_msgnum_to_uidl_cache = null;
+				}
 			}
 			$rf = null;
 			if (array_key_exists($name, $this->proxy_method_cache)) {
@@ -143,6 +157,140 @@ class Client {
 			}
 		} while(0);
 		throw new \BadMethodCallException("The method '$name' does not exist");
+	}
+
+
+	/**
+	* Returns an emulated UIDL for the given message header as returned by imap_headerinfo().
+	* The PHP IMAP module does not support POP3 UIDLs which is the reason that this method exists.
+	*
+	* @param \StdClass $headerinfo
+	* @return string|false
+	*/
+	public static function headerinfo_to_uidl(\StdClass $headerinfo) {
+		if (!$headerinfo) {
+			return false;
+		}
+		$hashvars = array();
+		foreach (array(
+			'toaddress',
+			'fromaddress',
+			'ccaddress',
+			'bccaddress',
+			'reply_toaddress',
+			'senderaddress',
+			'return_pathaddress',
+			'date',
+			'message_id',
+			'subject',
+			'Size',
+		) as $key) {
+			if (isset($headerinfo->$key) && is_scalar($headerinfo->$key) && strlen($headerinfo->$key)) {
+				$hashvars []= $headerinfo->$key;
+			}
+		}
+		if (!$hashvars) {
+			return false;
+		}
+		$result = null;
+		# http://php.net/manual/en/function.hash.php
+		if (isset($headerinfo->message_id) && is_scalar($headerinfo->message_id) && strlen($headerinfo->message_id)) {
+			$result = $headerinfo->message_id . '.' . hash('md5', join("\n", $hashvars));
+		}
+		else {
+			$result = hash('sha1', join("\n", $hashvars));
+		}
+		return $result;
+	}
+
+
+	/**
+	* This is similar to the imap_msgno(), except that it has a built in emulation to work for POP3 too.
+	* In the case of POP3, the $uid argument must be a UIDL string as returned by the uid() or headerinfo_to_uidl() methods.
+	*
+	* @param int|string $uid
+	* @return int|false
+	*/
+	public function msgno($uid) {
+		if (!(is_int($uid) || (is_string($uid)))) {
+			throw new \InvalidArgumentException('uid must be an int or a string');
+		}
+		if ($this->driver != 'pop3') {
+			return \imap_msgno($this->imap_stream, $uid);
+		}
+		
+		# If the uid is actually a msgno int as the original imap_uid() returns for POP3, then forward call to imap_msgno().
+		if (is_int($uid) || (is_string($uid) && preg_match('/^\d{1,10}$/', $uid))) {
+			return \imap_msgno($this->imap_stream, $uid);
+		}
+
+		# Try cache
+		if (is_array($this->pop3_uidl_to_msgnum_cache)) {
+			return array_key_exists($uid, $this->pop3_uidl_to_msgnum_cache) ? $this->pop3_uidl_to_msgnum_cache[$uid] : false;
+		}
+
+		# Rebuild cache
+		$num_msg = $this->num_msg();
+		if (!$num_msg) {
+			return false;
+		}
+		$result = false;
+		$pop3_uidl_to_msgnum_cache = array();
+		$pop3_msgnum_to_uidl_cache = array();
+		for ($i=1; $i<=$num_msg; $i++) {
+			if ($header = $this->headerinfo($i)) {
+				$uidl = static::headerinfo_to_uidl($header);
+				if ($uid == $uidl) {
+					$result = $i;
+					#return $i;
+				}
+				$pop3_uidl_to_msgnum_cache[$uidl] = $i;
+				$pop3_msgnum_to_uidl_cache[$i] = $uidl;
+			}
+		}
+		$this->pop3_uidl_to_msgnum_cache = $pop3_uidl_to_msgnum_cache;
+		$this->pop3_msgnum_to_uidl_cache = $pop3_msgnum_to_uidl_cache;
+		return $result;
+	}
+
+
+	/**
+	* This is similar to the imap_uid(), except that it has a built in emulation to work for POP3 too.
+	* In the case of POP3, the result is a UIDL string.
+	*
+	* @param int $msgno
+	* @return int|string
+	*/
+	public function uid($msgno) {
+		if (!(is_int($msgno) || (is_string($msgno) && preg_match('/^\d{1,10}$/', $msgno)))) {
+			throw new \InvalidArgumentException('msgno must be an int');
+		}
+		if ($this->driver != 'pop3') {
+			return \imap_uid($this->imap_stream, $msgno);
+		}
+
+		# Try cache first
+		if (is_array($this->pop3_msgnum_to_uidl_cache)) {
+			return array_key_exists($msgno, $this->pop3_msgnum_to_uidl_cache) ? $this->pop3_msgnum_to_uidl_cache[$msgno] : false;
+		}
+
+		# Recalculate UIDL
+		$header = $this->headerinfo($msgno);
+		if (!$header) {
+			return $header;
+		}
+		return static::headerinfo_to_uidl($header);
+	}
+	
+	
+	/**
+	* Alias of uid() for convenience.
+	*
+	* @param int $msgno
+	* @return int|string
+	*/
+	public function uidl($msgno) {
+		return $this->uid($msgno);
 	}
 
 }

@@ -36,7 +36,7 @@ class Test extends PHPUnit_Framework_TestCase {
     public function testMethodsExist() {
 		$class = static::CLASS_NAME;
 		$methods = array(
-			// public
+			# public
 			'__construct',
 			'__call',
 			'__destruct',
@@ -74,12 +74,23 @@ if (isset($argv)) {
 			null,
 			null,
 			null,
-			array('debug' => true)
+			array(
+				#'debug' => true
+			)
 		);
 		$num_msg = $o->num_msg();
-		print "num_msg: $num_msg\n";
-		$num_msg = $o->num_msg();
-		print "num_msg (2nd call): $num_msg\n";
+		print "num_msg: $num_msg\n";	
+		#print_r($o->mailboxmsginfo());
+		#print_r($o->fetch_overview('1:' . $num_msg)); die;		
+		for ($msgno=1; $msgno<=$num_msg; $msgno++) {
+			print "\nmsgno: $msgno\n";
+			$uid = $o->uid($msgno);
+			print "uid from msgno: $uid\n";
+			print "msgno from uid: " . $o->msgno($uid) . "\n";
+			$header = $o->headerinfo($msgno);
+			$message_id = $header->message_id;
+			print "message_id: $message_id\n";	
+		}
 	}
 	else {
 		print "Required defines missing!\n";
