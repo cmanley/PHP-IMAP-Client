@@ -4,7 +4,7 @@
 *
 * @author    Craig Manley
 * @copyright Copyright © 2017 Craig Manley (craigmanley.com)
-* @version   $Id: HeaderInfo.php,v 1.1 2018/01/06 00:59:51 cmanley Exp $
+* @version   $Id: HeaderInfo.php,v 1.2 2018/01/06 02:23:57 cmanley Exp $
 * @package   IMAP
 */
 namespace IMAP;
@@ -114,9 +114,9 @@ class HeaderInfo {
 		if (is_null($this->_uidl)) {
 			$uidl = static::headerinfo_to_uidl($this);
 			$this->_locked = false;
-			$this->uidl = $uidl;
+			$this->_uidl = $uidl;
 			$this->_locked = true;
 		}
-		return $this->uidl;
+		return $this->_uidl;
 	}
 }
