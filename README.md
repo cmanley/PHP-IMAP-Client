@@ -32,9 +32,9 @@ All the classes contain PHP-doc documentation, so for now, take a look at the co
 
 	# Get messages
 	for ($i=1; $i<=$num_msgs; $i++) {
-		$header = $client->headerinfo($i);
-		$message_id = $header->message_id;
-		print "message_id: $message_id\n";		
+		$headerinfo = $client->headerinfo($i);	# returns a HeaderInfo object
+		$message_id = $headerinfo->message_id;
+		print "message_id: $message_id\n";
 
 		# Grab the body for the same message
 		$body = $client->body($i);
@@ -42,8 +42,8 @@ All the classes contain PHP-doc documentation, so for now, take a look at the co
 		# Print the uid or emulated UIDL in the case of POP3 connections
 		print 'UID: ' . $client->uid($i) . "\n";
 
-		# or alternatively, since we have the headerinfo object and are using POP3...
-		print 'POP3 emulated UIDL: ' . $client::headerinfo_to_uidl($header) . "\n";
+		# or alternatively, since we are using POP3...
+		print 'POP3 emulated UIDL: ' . $headerinfo->uidl() . "\n";
 	}
 
 	# Disconnection occurs when the object is destroyed by going out of scope, or explicitly as such:
