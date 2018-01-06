@@ -36,14 +36,32 @@ class Test extends PHPUnit_Framework_TestCase {
     public function testMethodsExist() {
 		$class = static::CLASS_NAME;
 		$methods = array(
-			# public
-			'__construct',
-			'__call',
-			'__destruct',
+			'__construct'	=> ReflectionMethod::IS_PUBLIC,
+			'__call'		=> ReflectionMethod::IS_PUBLIC,
+			'__destruct'	=> ReflectionMethod::IS_PUBLIC,
+			'headerinfo'	=> ReflectionMethod::IS_PUBLIC,
+			'msgno'			=> ReflectionMethod::IS_PUBLIC,
+			'uid'			=> ReflectionMethod::IS_PUBLIC,
+			#'register'	=> ReflectionMethod::IS_PUBLIC | ReflectionMethod::IS_STATIC,
 		);
-		foreach ($methods as $method) {
-			$this->assertTrue(method_exists($class, $method), "Check method $class::$method() exists.");
-		}
+		foreach ($methods as $name => $expected_modifiers) {
+			$exists = method_exists($class, $name);
+			$this->assertTrue($exists, "Check method $class::$name() exists.");
+			if ($exists) {
+				$method = new ReflectionMethod($class, $name);
+				$actual_modifiers = $method->getModifiers() & (
+					ReflectionMethod::IS_STATIC |
+					ReflectionMethod::IS_PUBLIC |
+					ReflectionMethod::IS_PROTECTED |
+					ReflectionMethod::IS_PRIVATE |
+					ReflectionMethod::IS_ABSTRACT |
+					ReflectionMethod::IS_FINAL
+				);
+				#error_log("$name expected: " . $expected_modifiers);
+				#error_log("$name actual:   " . $actual_modifiers);
+				$this->assertEquals($expected_modifiers, $actual_modifiers, "Expected $class::$name() modifiers to be \"" . join(' ', Reflection::getModifierNames($expected_modifiers)) . '" but got "' . join(' ', Reflection::getModifierNames($actual_modifiers)) . '" instead.');
+			}
+		} 
 	}
 
 	public function testCreate() {
@@ -87,9 +105,14 @@ if (isset($argv)) {
 			$uid = $o->uid($msgno);
 			print "uid from msgno: $uid\n";
 			print "msgno from uid: " . $o->msgno($uid) . "\n";
-			$header = $o->headerinfo($msgno);
-			$message_id = $header->message_id;
+			$headerinfo = $o->headerinfo($msgno);
+			$message_id = $headerinfo->message_id;
 			print "message_id: $message_id\n";	
+			print 'UIDL: ' . $headerinfo->uidl() . "\n";
+			#print_r($headerinfo);
+			#print_r(get_object_vars($headerinfo)); die;
+			#require_once('../../functions/var_export_natural.php');
+			#var_export_natural($headerinfo); die;
 		}
 	}
 	else {

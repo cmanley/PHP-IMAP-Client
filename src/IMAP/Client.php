@@ -3,8 +3,8 @@
 * Contains the IMAP\Client and IMAP\Exception classes.
 *
 * @author    Craig Manley
-* @copyright Copyright © 2016, Craig Manley (craigmanley.com). All rights reserved.
-* @version   $Id: Client.php,v 1.4 2018/01/05 03:27:01 cmanley Exp $
+* @copyright Copyright © 2016, Craig Manley (craigmanley.com)
+* @version   $Id: Client.php,v 1.5 2018/01/06 00:59:51 cmanley Exp $
 * @package   IMAP
 */
 namespace IMAP;
@@ -17,6 +17,12 @@ namespace IMAP;
 */
 class Exception extends \Exception {}
 
+
+
+/**
+* @ignore Require dependencies.
+*/
+require_once(__DIR__ . '/HeaderInfo.php');
 
 
 
@@ -117,7 +123,7 @@ class Client {
 				$rf = new \ReflectionFunction($func);
 				$params = $rf->getParameters();
 				if (!$params) {
-					$this->debug && error_log(__METHOD__ . " $func as no parameters");
+					$this->debug && error_log(__METHOD__ . " $func has no parameters");
 					break;
 				}
 				# Check the first parameter in detail.
@@ -129,14 +135,14 @@ class Client {
 					}
 				}
 				if ($p->allowsNull()) {
-					$this->debug && error_log(__METHOD__ . " $func first parameter should no allow null");
+					$this->debug && error_log(__METHOD__ . " $func first parameter should not allow null");
 					break;
 				}
 				if ($p->isOptional()) {
 					$this->debug && error_log(__METHOD__ . " $func first parameter should not be optional");
 					break;
 				}
-				if ($p->getName() != 'stream_id') { # name can't be trusted across PHP versions
+				if ($p->getName() != 'stream_id') { # name can't be guaranteed across PHP versions; disable/improve this check if problematic
 					$this->debug && error_log(__METHOD__ . " $func first parameter has unexpected name (" . $p->getName() . ')');
 					break;
 				}
@@ -161,52 +167,25 @@ class Client {
 
 
 	/**
-	* Returns an emulated UIDL for the given message header as returned by imap_headerinfo().
-	* The PHP IMAP module does not support POP3 UIDLs which is the reason that this method exists.
+	* This method casts the result of imap_headerinfo() into a HeaderInfo object and returns that.
 	*
-	* @param \StdClass $headerinfo
+	* @param HeaderInfo $headerinfo
 	* @return string|false
 	*/
-	public static function headerinfo_to_uidl(\StdClass $headerinfo) {
-		if (!$headerinfo) {
+	public function headerinfo(/* int $msg_number [, int $fromlength = 0 [, int $subjectlength = 0 [, string $defaulthost = NULL ]]] */) {
+		$params = func_get_args();
+		array_unshift($params, $this->imap_stream);
+		$result = call_user_func_array('\\imap_headerinfo', $params);
+		if (!$result) {
 			return false;
 		}
-		$hashvars = array();
-		foreach (array(
-			'toaddress',
-			'fromaddress',
-			'ccaddress',
-			'bccaddress',
-			'reply_toaddress',
-			'senderaddress',
-			'return_pathaddress',
-			'date',
-			'message_id',
-			'subject',
-			'Size',
-		) as $key) {
-			if (isset($headerinfo->$key) && is_scalar($headerinfo->$key) && strlen($headerinfo->$key)) {
-				$hashvars []= $headerinfo->$key;
-			}
-		}
-		if (!$hashvars) {
-			return false;
-		}
-		$result = null;
-		# http://php.net/manual/en/function.hash.php
-		if (isset($headerinfo->message_id) && is_scalar($headerinfo->message_id) && strlen($headerinfo->message_id)) {
-			$result = $headerinfo->message_id . '.' . hash('md5', join("\n", $hashvars));
-		}
-		else {
-			$result = hash('sha1', join("\n", $hashvars));
-		}
-		return $result;
+		return new HeaderInfo($result);
 	}
 
 
 	/**
-	* This is similar to the imap_msgno(), except that it has a built in emulation to work for POP3 too.
-	* In the case of POP3, the $uid argument must be a UIDL string as returned by the uid() or headerinfo_to_uidl() methods.
+	* This is similar to imap_msgno(), except that it has a built in emulation to work for POP3 too.
+	* In the case of POP3, the $uid argument must be a UIDL string as returned by the uid() or headerinfo($msgno)->uidl() methods.
 	*
 	* @param int|string $uid
 	* @return int|false
@@ -218,7 +197,7 @@ class Client {
 		if ($this->driver != 'pop3') {
 			return \imap_msgno($this->imap_stream, $uid);
 		}
-		
+
 		# If the uid is actually a msgno int as the original imap_uid() returns for POP3, then forward call to imap_msgno().
 		if (is_int($uid) || (is_string($uid) && preg_match('/^\d{1,10}$/', $uid))) {
 			return \imap_msgno($this->imap_stream, $uid);
@@ -238,8 +217,8 @@ class Client {
 		$pop3_uidl_to_msgnum_cache = array();
 		$pop3_msgnum_to_uidl_cache = array();
 		for ($i=1; $i<=$num_msg; $i++) {
-			if ($header = $this->headerinfo($i)) {
-				$uidl = static::headerinfo_to_uidl($header);
+			if ($headerinfo = $this->headerinfo($i)) {
+				$uidl = $headerinfo->uidl();
 				if ($uid == $uidl) {
 					$result = $i;
 					#return $i;
@@ -256,7 +235,7 @@ class Client {
 
 	/**
 	* This is similar to the imap_uid(), except that it has a built in emulation to work for POP3 too.
-	* In the case of POP3, the result is a UIDL string.
+	* In the case of POP3, the result is an emulated UIDL string.
 	*
 	* @param int $msgno
 	* @return int|string
@@ -275,22 +254,8 @@ class Client {
 		}
 
 		# Recalculate UIDL
-		$header = $this->headerinfo($msgno);
-		if (!$header) {
-			return $header;
-		}
-		return static::headerinfo_to_uidl($header);
-	}
-	
-	
-	/**
-	* Alias of uid() for convenience.
-	*
-	* @param int $msgno
-	* @return int|string
-	*/
-	public function uidl($msgno) {
-		return $this->uid($msgno);
+		$headerinfo = $this->headerinfo($msgno);
+		return $headerinfo ? $headerinfo->uidl() : $headerinfo;
 	}
 
 }
