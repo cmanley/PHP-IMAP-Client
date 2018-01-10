@@ -97,9 +97,9 @@ if (isset($argv)) {
 			)
 		);
 		$num_msg = $o->num_msg();
-		print "num_msg: $num_msg\n";	
+		print "num_msg: $num_msg\n";
 		#print_r($o->mailboxmsginfo());
-		#print_r($o->fetch_overview('1:' . $num_msg)); die;		
+		#print_r($o->fetch_overview('1:' . $num_msg)); die;
 		for ($msgno=1; $msgno<=$num_msg; $msgno++) {
 			print "\nmsgno: $msgno\n";
 			$uid = $o->uid($msgno);
@@ -107,12 +107,11 @@ if (isset($argv)) {
 			print "msgno from uid: " . $o->msgno($uid) . "\n";
 			$headerinfo = $o->headerinfo($msgno);
 			$message_id = $headerinfo->message_id;
-			print "message_id: $message_id\n";	
+			print "message_id: $message_id\n";
 			print 'UIDL: ' . $headerinfo->uidl() . "\n";
 			#print_r($headerinfo);
 			#print_r(get_object_vars($headerinfo)); die;
-			#require_once('../../functions/var_export_natural.php');
-			#var_export_natural($headerinfo); die;
+			print "\n" . $o->fetchheader($msgno, FT_INTERNAL) . "\n"; die;
 		}
 	}
 	else {
