@@ -4,7 +4,7 @@
 *
 * @author    Craig Manley
 * @copyright Copyright © 2016, Craig Manley (craigmanley.com)
-* @version   $Id: Client.php,v 1.6 2018/01/10 11:34:06 cmanley Exp $
+* @version   $Id: Client.php,v 1.7 2018/01/10 23:30:36 cmanley Exp $
 * @package   IMAP
 */
 namespace IMAP;
@@ -109,13 +109,13 @@ class Client {
 				}
 			}
 			$rf = null;
+			$func = '\\imap_' . $name;
 			if (array_key_exists($name, $this->proxy_method_cache)) {
 				$this->debug && error_log(__METHOD__ . " $name found in proxy method cache");
 				$rf = $this->proxy_method_cache[$name];
 			}
 			else {
-				$this->debug && error_log(__METHOD__ . " $name not found in proxy method cache");
-				$func = '\\imap_' . $name;
+				$this->debug && error_log(__METHOD__ . " $name not found in proxy method cache");				
 				if (!function_exists($func)) {
 					$this->debug && error_log(__METHOD__ . " $func does not exist");
 					break;
@@ -156,9 +156,9 @@ class Client {
 					unset($arg);
 				}
 				$result = $rf->invokeArgs($args);
-				if ($result === false) {
-					throw new Exception("$func() call failed");
-				}
+				#if ($result === false) {
+				#	throw new Exception("$func() call failed");
+				#}
 				return $result;
 			}
 		} while(0);
