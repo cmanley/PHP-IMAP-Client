@@ -4,7 +4,7 @@
 *
 * @author    Craig Manley
 * @copyright Copyright © 2016, Craig Manley (craigmanley.com)
-* @version   $Id: Client.php,v 1.7 2018/01/10 23:30:36 cmanley Exp $
+* @version   $Id: Client.php,v 1.8 2018/01/15 11:27:20 cmanley Exp $
 * @package   IMAP
 */
 namespace IMAP;
@@ -66,7 +66,7 @@ class Client {
 		}
 		$this->imap_stream = \imap_open($mailbox, $username, $password, $options, $n_retries, $params);
 		if (!$this->imap_stream) {
-			throw new Exception("imap_open('$mailbox', $username, '...') failed");
+			throw new Exception("imap_open('$mailbox', '$username', '...') failed");
 		}
 		if ($info = $this->mailboxmsginfo()) {
 			$this->driver = $info->Driver;
