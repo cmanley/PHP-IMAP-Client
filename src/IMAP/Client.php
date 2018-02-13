@@ -4,7 +4,7 @@
 *
 * @author    Craig Manley
 * @copyright Copyright © 2016, Craig Manley (craigmanley.com)
-* @version   $Id: Client.php,v 1.8 2018/01/15 11:27:20 cmanley Exp $
+* @version   $Id: Client.php,v 1.9 2018/02/13 15:53:43 cmanley Exp $
 * @package   IMAP
 */
 namespace IMAP;
@@ -64,14 +64,15 @@ class Client {
 		if (is_array($objopts) && $objopts) {
 			$this->debug = (bool) @$objopts['debug'];
 		}
-		$this->imap_stream = \imap_open($mailbox, $username, $password, $options, $n_retries, $params);
+		$this->imap_stream = @\imap_open($mailbox, $username, $password, $options, $n_retries, $params);
 		if (!$this->imap_stream) {
-			throw new Exception("imap_open('$mailbox', '$username', '...') failed");
+			$error = imap_last_error();
+			\imap_errors(); # clear errors from appearing at cleanup
+			throw new Exception("imap_open('$mailbox', '$username', ...) failed" . ($error ? ": $error" : ''));
 		}
 		if ($info = $this->mailboxmsginfo()) {
 			$this->driver = $info->Driver;
 		}
-		\imap_errors(); # clear errors from appearing at cleanup
 	}
 
 
@@ -81,6 +82,7 @@ class Client {
 	*/
 	public function __destruct() {
 		$this->imap_stream && \imap_close($this->imap_stream);
+		\imap_errors(); # clear errors from appearing at cleanup
 	}
 
 
@@ -115,7 +117,7 @@ class Client {
 				$rf = $this->proxy_method_cache[$name];
 			}
 			else {
-				$this->debug && error_log(__METHOD__ . " $name not found in proxy method cache");				
+				$this->debug && error_log(__METHOD__ . " $name not found in proxy method cache");
 				if (!function_exists($func)) {
 					$this->debug && error_log(__METHOD__ . " $func does not exist");
 					break;
