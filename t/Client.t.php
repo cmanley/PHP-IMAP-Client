@@ -61,7 +61,7 @@ class Test extends PHPUnit_Framework_TestCase {
 				#error_log("$name actual:   " . $actual_modifiers);
 				$this->assertEquals($expected_modifiers, $actual_modifiers, "Expected $class::$name() modifiers to be \"" . join(' ', Reflection::getModifierNames($expected_modifiers)) . '" but got "' . join(' ', Reflection::getModifierNames($actual_modifiers)) . '" instead.');
 			}
-		} 
+		}
 	}
 
 	public function testCreate() {

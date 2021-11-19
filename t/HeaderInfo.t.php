@@ -9,7 +9,7 @@ class Test extends PHPUnit_Framework_TestCase {
 
 	const CLASS_NAME = 'IMAP\\HeaderInfo';
 	const FILE_NAME = '../src/IMAP/HeaderInfo.php';
-	
+
 	public static function get_test_data() {
 		return (object) array(
 			'date' => 'Wed, 26 Aug 2015 02:41:35 +0200',
@@ -79,7 +79,7 @@ class Test extends PHPUnit_Framework_TestCase {
 			'__construct'			=> ReflectionMethod::IS_PUBLIC,
 			'__set'					=> ReflectionMethod::IS_PUBLIC,
 			'headerinfo_to_uidl'	=> ReflectionMethod::IS_PUBLIC | ReflectionMethod::IS_STATIC,
-			'uidl'					=> ReflectionMethod::IS_PUBLIC,			
+			'uidl'					=> ReflectionMethod::IS_PUBLIC,
 		);
 		foreach ($methods as $name => $expected_modifiers) {
 			$exists = method_exists($class, $name);
@@ -98,7 +98,7 @@ class Test extends PHPUnit_Framework_TestCase {
 				#error_log("$name actual:   " . $actual_modifiers);
 				$this->assertEquals($expected_modifiers, $actual_modifiers, "Expected $class::$name() modifiers to be \"" . join(' ', Reflection::getModifierNames($expected_modifiers)) . '" but got "' . join(' ', Reflection::getModifierNames($actual_modifiers)) . '" instead.');
 			}
-		} 
+		}
 	}
 
 	public function testCreate() {
@@ -106,7 +106,7 @@ class Test extends PHPUnit_Framework_TestCase {
 		$o = new $class(static::get_test_data());
 		$this->assertTrue(is_object($o), 'Create object.');
 		$uidl = $o->uidl();
-		$this->assertEquals('string', gettype($uidl), 'Calling uidl() returns a string.');		
+		$this->assertEquals('string', gettype($uidl), 'Calling uidl() returns a string.');
 	}
 
 }
